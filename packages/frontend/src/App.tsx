@@ -1,81 +1,40 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { env } from './lib/env';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import PostDog from './pages/PostDog';
 import './App.css';
 
-interface HealthStatus {
-  ok: boolean;
-  service: string;
+// Placeholder components for future routes
+function Dashboard() {
+  return (
+    <div className="page-placeholder">
+      <h2>📊 Dashboard</h2>
+      <p>This feature will be implemented in Step 7</p>
+    </div>
+  );
 }
 
 function App() {
-  const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
-  const [healthError, setHealthError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get<HealthStatus>(`${env.API_BASE}/health`);
-        setHealthStatus(response.data);
-        setHealthError(null);
-      } catch (error) {
-        setHealthError(error instanceof Error ? error.message : 'Unknown error');
-        setHealthStatus(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkHealth();
-  }, []);
-
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>🐕 PawPal</h1>
-        <p>Connecting street dogs with loving homes</p>
-      </header>
+    <Router>
+      <div className="app">
+        <Navbar />
+        
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/post-dog" element={<PostDog />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
 
-      <main className="app-main">
-        <div className="status-card">
-          <h2>Frontend Status</h2>
-          <div className="status-badge success">✅ Frontend running</div>
-          <p>Environment: {import.meta.env.MODE}</p>
-          <p>API Base: {env.API_BASE}</p>
-        </div>
-
-        <div className="status-card">
-          <h2>Backend API Status</h2>
-          {loading ? (
-            <div className="status-badge loading">🔄 Checking...</div>
-          ) : healthStatus ? (
-            <div className="status-badge success">
-              ✅ {healthStatus.service} - OK
-            </div>
-          ) : (
-            <div className="status-badge error">
-              ❌ API Error: {healthError}
-            </div>
-          )}
-        </div>
-
-        <div className="info-card">
-          <h3>Development Info</h3>
-          <ul>
-            <li>Frontend: React + Vite + TypeScript</li>
-            <li>Backend: Express + TypeScript</li>
-            <li>Database: Supabase (PostgreSQL)</li>
-            <li>Package Manager: pnpm workspaces</li>
-          </ul>
-        </div>
-      </main>
-
-      <footer className="app-footer">
-        <p>PawPal MVP - Built with ❤️ for street dogs</p>
-      </footer>
-    </div>
+        <footer className="app-footer">
+          <p>PawPal MVP - Built with ❤️ for street dogs</p>
+        </footer>
+      </div>
+    </Router>
   );
 }
 

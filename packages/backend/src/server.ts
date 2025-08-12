@@ -1,4 +1,5 @@
-import app from './index';
+import 'dotenv/config';
+import { app } from './index';
 
 // Get port from environment or default to 4000
 const PORT = process.env.PORT || 4000;

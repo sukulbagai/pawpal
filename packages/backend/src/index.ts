@@ -2,61 +2,41 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 
-// Create Express app
-const app = express();
-
-// Environment variables with defaults
-const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
-const NODE_ENV = process.env.NODE_ENV || 'development';
+// Routes
+import healthRouter from './routes/health';
+import protectedRouter from './routes/protected';
+import authRouter from './routes/auth';
+import dogsRouter from './routes/dogs';
+import tagsRouter from './routes/tags';
 
 // Middleware
-app.use(morgan('combined'));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+import { errorHandler, notFoundHandler } from './middleware/errors';
 
-// CORS configuration
+const app: express.Application = express();
+
+// Configure CORS
+const corsOrigins = process.env.CORS_ORIGIN?.split(',') || ['*'];
 app.use(cors({
-  origin: NODE_ENV === 'development' ? CORS_ORIGIN : false,
+  origin: corsOrigins,
   credentials: true,
 }));
 
-// Health check endpoint
-app.get('/health', (_req: express.Request, res: express.Response) => {
-  res.json({
-    ok: true,
-    service: 'pawpal-api',
-    timestamp: new Date().toISOString(),
-    environment: NODE_ENV,
-  });
-});
+// Logging
+app.use(morgan('dev'));
 
-// Basic API info
-app.get('/', (_req: express.Request, res: express.Response) => {
-  res.json({
-    name: 'PawPal API',
-    version: '0.1.0',
-    description: 'Connecting street dogs with loving homes',
-    endpoints: {
-      health: '/health',
-    },
-  });
-});
+// Body parsing
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// 404 handler
-app.use('*', (req: express.Request, res: express.Response) => {
-  res.status(404).json({
-    error: 'Not Found',
-    message: `Cannot ${req.method} ${req.originalUrl}`,
-  });
-});
+// Routes
+app.use('/health', healthRouter);
+app.use('/auth', authRouter);
+app.use('/dogs', dogsRouter);
+app.use('/tags', tagsRouter);
+app.use('/protected', protectedRouter);
 
-// Error handler
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Error:', err);
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: NODE_ENV === 'development' ? err.message : 'Something went wrong',
-  });
-});
+// Error handling
+app.use(notFoundHandler);
+app.use(errorHandler);
 
-export default app;
+export { app };
