@@ -26,41 +26,45 @@ export const DogCreateSchema = z.object({
 
 export type DogCreateInput = z.infer<typeof DogCreateSchema>;
 
-//For validation of query parameters in GET requests
+// Dog listing query schema
 export const DogListQuerySchema = z.object({
-  q: z.string().optional().transform((val: string | undefined) => val?.trim()),
-  tagIds: z.string().optional().transform((val: string | undefined) => 
+  q: z.string().optional(),
+  tagIds: z.string().optional().transform(val => 
     val ? val.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id)) : undefined
-  ).pipe(z.array(z.number()).optional()),
+  ),
   energy: z.enum(['low', 'medium', 'high']).optional(),
-  compatKids: z.string().optional().transform((val: string | undefined) => 
-    val === 'true' ? true : val === 'false' ? false : undefined
-  ).pipe(z.boolean().optional()),
-  compatDogs: z.string().optional().transform((val: string | undefined) => 
-    val === 'true' ? true : val === 'false' ? false : undefined
-  ).pipe(z.boolean().optional()),
-  compatCats: z.string().optional().transform((val: string | undefined) => 
-    val === 'true' ? true : val === 'false' ? false : undefined
-  ).pipe(z.boolean().optional()),
   status: z.enum(['available', 'pending', 'adopted']).optional(),
-  lat: z.string().optional().transform((val: string | undefined) => 
-    val ? parseFloat(val) : undefined
-  ).pipe(z.number().min(-90).max(90).optional()),
-  lng: z.string().optional().transform((val: string | undefined) => 
-    val ? parseFloat(val) : undefined
-  ).pipe(z.number().min(-180).max(180).optional()),
-  radiusKm: z.string().optional().transform((val: string | undefined) => 
-    val ? parseFloat(val) : undefined
-  ).pipe(z.number().min(0.1).max(100).optional()),
-  limit: z.string().optional().transform((val: string | undefined) => 
-    val ? Math.min(parseInt(val, 10), 50) : 24
-  ).pipe(z.number().min(1).max(50)),
-  offset: z.string().optional().transform((val: string | undefined) => 
-    val ? parseInt(val, 10) : 0
-  ).pipe(z.number().min(0))
+  compatKids: z.string().optional().transform(val => val === 'true' ? true : undefined),
+  compatDogs: z.string().optional().transform(val => val === 'true' ? true : undefined),
+  compatCats: z.string().optional().transform(val => val === 'true' ? true : undefined),
+  lat: z.string().optional().transform(val => val ? parseFloat(val) : undefined),
+  lng: z.string().optional().transform(val => val ? parseFloat(val) : undefined),
+  radiusKm: z.string().optional().transform(val => val ? parseFloat(val) : undefined),
+  limit: z.string().optional().transform(val => {
+    const num = val ? parseInt(val, 10) : 24;
+    return Math.min(Math.max(num, 1), 50); // Clamp between 1 and 50
+  }),
+  offset: z.string().optional().transform(val => {
+    const num = val ? parseInt(val, 10) : 0;
+    return Math.max(num, 0); // Ensure non-negative
+  }),
 });
 
 export type DogListQuery = z.infer<typeof DogListQuerySchema>;
+
+// Adoption request schemas
+export const AdoptionCreateSchema = z.object({
+  dog_id: z.string().uuid(),
+  message: z.string().max(500).optional().nullable(),
+});
+
+export type AdoptionCreateInput = z.infer<typeof AdoptionCreateSchema>;
+
+export const AdoptionStatusUpdateSchema = z.object({
+  status: z.enum(['approved', 'declined', 'cancelled']),
+});
+
+export type AdoptionStatusUpdateInput = z.infer<typeof AdoptionStatusUpdateSchema>;
 
 // For updating dogs (future use)
 export const DogUpdateSchema = DogCreateSchema.partial().omit({

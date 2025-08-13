@@ -8,6 +8,7 @@ import protectedRouter from './routes/protected';
 import authRouter from './routes/auth';
 import dogsRouter from './routes/dogs';
 import tagsRouter from './routes/tags';
+import { adoptionsRouter } from './routes/adoptions';
 
 // Middleware
 import { errorHandler, notFoundHandler } from './middleware/errors';
@@ -33,6 +34,7 @@ app.use('/health', healthRouter);
 app.use('/auth', authRouter);
 app.use('/dogs', dogsRouter);
 app.use('/tags', tagsRouter);
+app.use('/adoptions', adoptionsRouter);
 app.use('/protected', protectedRouter);
 
 // Error handling

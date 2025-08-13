@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useAuthStore } from '../store/useAuthStore';
+import { useToast } from '../components/Toast';
 
 interface DogDetails {
   id: string;
@@ -25,6 +27,7 @@ interface DogDetails {
   images?: string[];
   status: 'available' | 'pending' | 'adopted';
   created_at: string;
+  posted_by?: string;
   personality_tags?: Array<{ id: number; tag_name: string }>;
 }
 
@@ -34,6 +37,44 @@ export default function DogDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  // Adoption request state
+  const [adoptionMessage, setAdoptionMessage] = useState('');
+  const [adoptionLoading, setAdoptionLoading] = useState(false);
+  const [adoptionRequested, setAdoptionRequested] = useState(false);
+  
+  const { session, userRow } = useAuthStore();
+  const { showSuccess, showError } = useToast();
+
+  const handleAdoptionRequest = async () => {
+    if (!dog?.id) return;
+
+    try {
+      setAdoptionLoading(true);
+      const response = await api.post('/adoptions', {
+        dog_id: dog.id,
+        message: adoptionMessage.trim() || null,
+      });
+
+      if (response.data.ok) {
+        setAdoptionRequested(true);
+        setAdoptionMessage('');
+        showSuccess('Request sent! Track it in Dashboard → My Requests.');
+      }
+    } catch (error: any) {
+      console.error('Error submitting adoption request:', error);
+      if (error.response?.status === 409) {
+        showError('You already have a pending request for this dog.');
+      } else {
+        showError(error.response?.data?.error || 'Failed to submit adoption request');
+      }
+    } finally {
+      setAdoptionLoading(false);
+    }
+  };
+
+  const isOwner = userRow && dog && (userRow.id === dog.posted_by);
+  const canRequestAdoption = session && !isOwner && dog?.status === 'available' && !adoptionRequested;
 
   useEffect(() => {
     if (id) {
@@ -334,18 +375,122 @@ export default function DogDetails() {
             )}
           </div>
         </div>
+
+        {/* Adoption Request Section */}
+        <div className="details-card" style={{ marginTop: '32px' }}>
+          <h3 className="details-card-title">Request Adoption</h3>
+          
+          {!session ? (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <p style={{ margin: '0 0 16px 0', color: 'var(--text-light)' }}>
+                Sign in to request adoption for this dog
+              </p>
+              <Link 
+                to={`/login?redirect=/dogs/${dog.id}`} 
+                className="btn btn--primary"
+              >
+                Sign In to Request Adoption
+              </Link>
+            </div>
+          ) : isOwner ? (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <p style={{ margin: 0, color: 'var(--text-light)' }}>
+                You posted this dog. Incoming requests appear in your Dashboard.
+              </p>
+              <Link to="/dashboard" className="btn btn--ghost" style={{ marginTop: '16px' }}>
+                View Dashboard
+              </Link>
+            </div>
+          ) : dog.status === 'adopted' ? (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <p style={{ margin: 0, color: 'var(--text-light)' }}>
+                This dog has already been adopted.
+              </p>
+            </div>
+          ) : adoptionRequested ? (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <p style={{ margin: '0 0 8px 0', color: 'var(--ok)', fontWeight: '500' }}>
+                ✅ You've requested adoption for this dog
+              </p>
+              <p style={{ margin: 0, color: 'var(--text-light)', fontSize: '14px' }}>
+                Track your request in Dashboard → My Requests
+              </p>
+              <Link to="/dashboard" className="btn btn--ghost" style={{ marginTop: '16px' }}>
+                View My Requests
+              </Link>
+            </div>
+          ) : canRequestAdoption ? (
+            <div>
+              <div className="field">
+                <label className="label" htmlFor="adoption-message">
+                  Message to the caregiver (optional, 500 characters max)
+                </label>
+                <textarea
+                  id="adoption-message"
+                  className="textarea"
+                  placeholder="Tell them why you'd be a great match for this dog..."
+                  value={adoptionMessage}
+                  onChange={(e) => setAdoptionMessage(e.target.value)}
+                  maxLength={500}
+                  rows={4}
+                />
+                <div style={{ fontSize: '12px', color: 'var(--text-light)', textAlign: 'right' }}>
+                  {adoptionMessage.length}/500
+                </div>
+              </div>
+              <button
+                className="btn btn--primary"
+                onClick={handleAdoptionRequest}
+                disabled={adoptionLoading}
+                style={{ width: '100%' }}
+              >
+                {adoptionLoading ? 'Sending Request...' : 'Send Adoption Request'}
+              </button>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <p style={{ margin: 0, color: 'var(--text-light)' }}>
+                This dog is currently {dog.status}.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Sticky Bottom Bar (Mobile) */}
       <div className="details-sticky-bar">
         <div className="container">
-          <button 
-            className="adoption-button"
-            disabled
-            title="Coming in Step 7"
-          >
-            📞 Request Adoption (Coming Next)
-          </button>
+          {!session ? (
+            <Link 
+              to={`/login?redirect=/dogs/${dog.id}`} 
+              className="adoption-button"
+            >
+              📞 Sign In to Request Adoption
+            </Link>
+          ) : isOwner ? (
+            <Link to="/dashboard" className="adoption-button">
+              📊 View Dashboard
+            </Link>
+          ) : adoptionRequested ? (
+            <Link to="/dashboard" className="adoption-button">
+              ✅ View My Requests
+            </Link>
+          ) : canRequestAdoption ? (
+            <button 
+              className="adoption-button"
+              onClick={handleAdoptionRequest}
+              disabled={adoptionLoading}
+            >
+              {adoptionLoading ? 'Sending...' : '📞 Request Adoption'}
+            </button>
+          ) : (
+            <button 
+              className="adoption-button"
+              disabled
+            >
+              📞 Not Available
+            </button>
+          )}
         </div>
       </div>
     </div>
