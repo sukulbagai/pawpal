@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { useToast } from '../components/Toast';
+import { ReportButton } from '../components/ReportButton';
 
 interface DogDetails {
   id: string;
@@ -573,42 +574,20 @@ export default function DogDetails() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Sticky Bottom Bar (Mobile) */}
-      <div className="details-sticky-bar">
-        <div className="container">
-          {!session ? (
-            <Link 
-              to={`/login?redirect=/dogs/${dog.id}`} 
-              className="adoption-button"
-            >
-              📞 Sign In to Request Adoption
-            </Link>
-          ) : isOwner ? (
-            <Link to="/dashboard" className="adoption-button">
-              📊 View Dashboard
-            </Link>
-          ) : adoptionRequested ? (
-            <Link to="/dashboard" className="adoption-button">
-              ✅ View My Requests
-            </Link>
-          ) : canRequestAdoption ? (
-            <button 
-              className="adoption-button"
-              onClick={handleAdoptionRequest}
-              disabled={adoptionLoading}
-            >
-              {adoptionLoading ? 'Sending...' : '📞 Request Adoption'}
-            </button>
-          ) : (
-            <button 
-              className="adoption-button"
-              disabled
-            >
-              📞 Not Available
-            </button>
-          )}
+        {/* Report Button Section - Subtle positioning */}
+        <div style={{ 
+          marginTop: '24px', 
+          textAlign: 'right',
+          borderTop: '1px solid var(--border)',
+          paddingTop: '12px',
+          fontSize: '12px'
+        }}>
+          <ReportButton 
+            dogId={dog.id} 
+            caretakerUserId={dog.posted_by || ''} 
+            currentUserId={userRow?.id}
+          />
         </div>
       </div>
     </div>

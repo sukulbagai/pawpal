@@ -73,6 +73,11 @@ export default function Navbar() {
                     <span className="nav-badge">{pendingCount}</span>
                   )}
                 </Link>
+                {userRow?.role === 'admin' && (
+                  <Link to="/admin" className="nav-link">
+                    Admin
+                  </Link>
+                )}
               </div>
 
               <button 

@@ -1,6 +1,12 @@
 import { supabaseAdmin } from './supabase';
 import { DogCreateInput, DogCreateSchema, DogListQuery } from './validators';
 
+export interface Viewer {
+  authUserId?: string;
+  isAdmin?: boolean;
+  userId?: string;
+}
+
 export interface Dog {
   id: string;
   name: string | null;
@@ -26,6 +32,8 @@ export interface Dog {
   special_needs: string | null;
   status: 'available' | 'pending' | 'adopted';
   posted_by: string;
+  is_hidden?: boolean;
+  deleted_at?: string | null;
   created_at: string;
   updated_at: string;
   personality_tags?: Array<{
@@ -45,7 +53,10 @@ export interface DogCreateResult {
   created_at: string;
 }
 
-export async function listDogs(params: Partial<DogListQuery> = {}): Promise<{
+export async function listDogs(
+  params: Partial<DogListQuery> = {},
+  viewer?: Viewer
+): Promise<{
   items: Dog[];
   total: number;
 }> {
@@ -71,6 +82,20 @@ export async function listDogs(params: Partial<DogListQuery> = {}): Promise<{
       .select('*, personality_tag_ids', { count: 'exact' })
       .eq('status', status)
       .order('created_at', { ascending: false });
+
+    // Apply visibility filters based on viewer context
+    if (!viewer?.isAdmin) {
+      // For non-admin users, exclude deleted dogs
+      query = query.is('deleted_at', null);
+      
+      if (!viewer?.userId) {
+        // For non-authenticated users, also exclude hidden dogs
+        query = query.eq('is_hidden', false);
+      } else {
+        // For authenticated users, show hidden dogs only if they own them
+        query = query.or(`is_hidden.eq.false,posted_by.eq.${viewer.userId}`);
+      }
+    }
 
     // Text search on name or area
     if (q && q.trim()) {
@@ -136,44 +161,62 @@ export async function listDogs(params: Partial<DogListQuery> = {}): Promise<{
   }
 }
 
-export async function getDogById(id: string): Promise<Dog | null> {
-  // First get the dog
-  const { data: dogData, error: dogError } = await supabaseAdmin
-    .from('dogs')
-    .select('*')
-    .eq('id', id)
-    .single();
+export async function getDogById(id: string, viewer?: Viewer): Promise<Dog | null> {
+  try {
+    // First get the dog
+    const { data: dogData, error: dogError } = await supabaseAdmin
+      .from('dogs')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-  if (dogError) {
-    if (dogError.code === 'PGRST116') {
-      return null; // Not found
+    if (dogError) {
+      if (dogError.code === 'PGRST116') {
+        return null; // Not found
+      }
+      console.error('Error fetching dog:', dogError);
+      throw new Error(`Failed to fetch dog: ${dogError.message}`);
     }
-    console.error('Error fetching dog:', dogError);
-    throw new Error(`Failed to fetch dog: ${dogError.message}`);
+
+    // Apply visibility rules
+    if (!viewer?.isAdmin) {
+      // If dog is deleted, only admin can see it
+      if (dogData.deleted_at) {
+        return null;
+      }
+      
+      // If dog is hidden and viewer is not the owner, return null
+      if (dogData.is_hidden && dogData.posted_by !== viewer?.userId) {
+        return null;
+      }
+    }
+
+    // Then get personality tags
+    const { data: tagsData, error: tagsError } = await supabaseAdmin
+      .from('dog_personality_tags')
+      .select(`
+        personality_tags (
+          id,
+          tag_name
+        )
+      `)
+      .eq('dog_id', id);
+
+    if (tagsError) {
+      console.error('Error fetching personality tags:', tagsError);
+    }
+
+    // Combine the data
+    const dog = {
+      ...dogData,
+      personality_tags: tagsData?.map((t: any) => t.personality_tags).filter(Boolean) || []
+    };
+
+    return dog;
+  } catch (error) {
+    console.error('Error in getDogById:', error);
+    throw error;
   }
-
-  // Then get personality tags
-  const { data: tagsData, error: tagsError } = await supabaseAdmin
-    .from('dog_personality_tags')
-    .select(`
-      personality_tags (
-        id,
-        tag_name
-      )
-    `)
-    .eq('dog_id', id);
-
-  if (tagsError) {
-    console.error('Error fetching personality tags:', tagsError);
-  }
-
-  // Combine the data
-  const dog = {
-    ...dogData,
-    personality_tags: tagsData?.map((t: any) => t.personality_tags).filter(Boolean) || []
-  };
-
-  return dog;
 }
 
 export async function createDog({ 
@@ -243,4 +286,63 @@ export async function createDog({
   }
 
   return dogResult;
+}
+
+/**
+ * Hide a dog (make it invisible to public)
+ */
+export async function hideDog(dogId: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('dogs')
+    .update({ is_hidden: true })
+    .eq('id', dogId);
+
+  if (error) {
+    throw new Error(`Failed to hide dog: ${error.message}`);
+  }
+}
+
+/**
+ * Unhide a dog (make it visible to public)
+ */
+export async function unhideDog(dogId: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('dogs')
+    .update({ is_hidden: false })
+    .eq('id', dogId);
+
+  if (error) {
+    throw new Error(`Failed to unhide dog: ${error.message}`);
+  }
+}
+
+/**
+ * Soft delete a dog (mark as deleted but don't remove from database)
+ */
+export async function softDeleteDog(dogId: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('dogs')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', dogId);
+
+  if (error) {
+    throw new Error(`Failed to soft delete dog: ${error.message}`);
+  }
+}
+
+/**
+ * Override dog adoption status
+ */
+export async function overrideDogStatus(
+  dogId: string,
+  status: 'available' | 'pending' | 'adopted'
+): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('dogs')
+    .update({ status })
+    .eq('id', dogId);
+
+  if (error) {
+    throw new Error(`Failed to override dog status: ${error.message}`);
+  }
 }

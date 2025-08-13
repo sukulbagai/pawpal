@@ -1,13 +1,41 @@
 import { Router } from 'express';
-import { listDogs, getDogById, createDog } from '../lib/dogs';
+import { listDogs, getDogById, createDog, Viewer } from '../lib/dogs';
 import { getMyRequestForDog } from '../lib/adoptions';
 import { DogListQuerySchema, DogCreateSchema } from '../lib/validators';
-import { authRequired } from '../middleware/auth';
+import { authRequired, authOptional } from '../middleware/auth';
+import { rateLimiters } from '../middleware/ratelimit';
+import { supabaseAdmin } from '../lib/supabase';
 
 const router: Router = Router();
 
+/**
+ * Helper function to build viewer context from request
+ */
+async function buildViewer(req: any): Promise<Viewer | undefined> {
+  if (!req.authUserId) {
+    return undefined;
+  }
+
+  // Look up user details
+  const { data: user, error } = await supabaseAdmin
+    .from('users')
+    .select('id, role')
+    .eq('auth_user_id', req.authUserId)
+    .single();
+
+  if (error || !user) {
+    return { authUserId: req.authUserId };
+  }
+
+  return {
+    authUserId: req.authUserId,
+    userId: user.id,
+    isAdmin: user.role === 'admin',
+  };
+}
+
 // GET /dogs - List dogs with filtering
-router.get('/', async (req, res, next) => {
+router.get('/', authOptional, async (req, res, next) => {
   try {
     const queryResult = DogListQuerySchema.safeParse(req.query);
     
@@ -18,7 +46,10 @@ router.get('/', async (req, res, next) => {
       });
     }
 
-    const { items, total } = await listDogs(queryResult.data);
+    // Build viewer context
+    const viewer = await buildViewer(req);
+
+    const { items, total } = await listDogs(queryResult.data, viewer);
     
     return res.json({
       items,
@@ -34,7 +65,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // GET /dogs/:id - Get specific dog
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', authOptional, async (req, res, next) => {
   try {
     const dogId = req.params.id;
     
@@ -44,7 +75,10 @@ router.get('/:id', async (req, res, next) => {
       });
     }
 
-    const dog = await getDogById(dogId);
+    // Build viewer context
+    const viewer = await buildViewer(req);
+
+    const dog = await getDogById(dogId, viewer);
     
     if (!dog) {
       return res.status(404).json({
@@ -87,7 +121,7 @@ router.get('/:id/my-request', authRequired, async (req, res, next) => {
 });
 
 // POST /dogs - Create new dog (requires authentication)
-router.post('/', authRequired, async (req, res, next) => {
+router.post('/', authRequired, rateLimiters.dogCreation, async (req, res, next) => {
   try {
     // Check if user is authenticated
     if (!req.userId) {

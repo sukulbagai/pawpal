@@ -7,6 +7,7 @@ import Signup from './pages/Signup';
 import PostDog from './pages/PostDog';
 import DogDetails from './pages/DogDetails';
 import { Dashboard } from './pages/Dashboard';
+import Admin from './pages/Admin';
 import './App.css';
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
           <Route path="/post-dog" element={<PostDog />} />
           <Route path="/dogs/:id" element={<DogDetails />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
 
         <footer className="app-footer">
