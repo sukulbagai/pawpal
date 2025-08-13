@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import PostDog from './pages/PostDog';
+import DogDetails from './pages/DogDetails';
 import './App.css';
 
 // Placeholder components for future routes
@@ -27,6 +28,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/post-dog" element={<PostDog />} />
+          <Route path="/dogs/:id" element={<DogDetails />} />
           <Route path="/dashboard" element={<Dashboard />} />
         </Routes>
 

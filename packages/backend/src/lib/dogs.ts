@@ -1,8 +1,8 @@
 import { supabaseAdmin } from './supabase';
-import { DogCreateInput, DogCreateSchema } from './validators';
+import { DogCreateInput, DogCreateSchema, DogListQuery } from './validators';
 
 export interface Dog {
-  id: number;
+  id: string;
   name: string | null;
   breed: string | null;
   age_years: number | null;
@@ -31,10 +31,11 @@ export interface Dog {
     id: number;
     tag_name: string;
   }>;
+  personality_tag_ids?: number[];
 }
 
 export interface DogCreateResult {
-  id: number;
+  id: string;
   name: string | null;
   area: string;
   images: string[];
@@ -42,46 +43,73 @@ export interface DogCreateResult {
   created_at: string;
 }
 
-export async function listDogs(options: {
-  limit?: number;
-  offset?: number;
-  area?: string;
-  status?: 'available' | 'pending' | 'adopted';
-  breed?: string;
-  gender?: 'male' | 'female' | 'unknown';
-} = {}): Promise<{
-  dogs: Dog[];
+export async function listDogs(params: Partial<DogListQuery> = {}): Promise<{
+  items: Dog[];
   total: number;
 }> {
   const {
-    limit = 20,
-    offset = 0,
-    area,
+    q,
+    tagIds,
+    energy,
+    compatKids,
+    compatDogs,
+    compatCats,
     status = 'available',
-    breed,
-    gender
-  } = options;
+    lat,
+    lng,
+    radiusKm,
+    limit = 24,
+    offset = 0
+  } = params;
 
   try {
-    // Simple query without complex joins for now
+    // Start building query
     let query = supabaseAdmin
       .from('dogs')
-      .select('*', { count: 'exact' })
+      .select('*, personality_tag_ids', { count: 'exact' })
       .eq('status', status)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .order('created_at', { ascending: false });
 
-    if (area) {
-      query = query.ilike('area', `%${area}%`);
+    // Text search on name or area
+    if (q && q.trim()) {
+      query = query.or(`name.ilike.%${q}%,area.ilike.%${q}%`);
     }
 
-    if (breed) {
-      query = query.ilike('breed', `%${breed}%`);
+    // Energy level filter
+    if (energy) {
+      query = query.eq('energy_level', energy);
     }
 
-    if (gender) {
-      query = query.eq('gender', gender);
+    // Compatibility filters
+    if (compatKids !== undefined) {
+      query = query.eq('compatibility_kids', compatKids);
     }
+    if (compatDogs !== undefined) {
+      query = query.eq('compatibility_dogs', compatDogs);
+    }
+    if (compatCats !== undefined) {
+      query = query.eq('compatibility_cats', compatCats);
+    }
+
+    // Tag filter - check if any of the provided tag IDs overlap with dog's personality_tag_ids
+    if (tagIds && tagIds.length > 0) {
+      query = query.overlaps('personality_tag_ids', tagIds);
+    }
+
+    // Geographic radius filter (approximate bounding box)
+    if (lat !== undefined && lng !== undefined && radiusKm !== undefined) {
+      const latDelta = radiusKm / 111; // Rough conversion: 1 degree ≈ 111 km
+      const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+      
+      query = query
+        .gte('location_lat', lat - latDelta)
+        .lte('location_lat', lat + latDelta)
+        .gte('location_lng', lng - lngDelta)
+        .lte('location_lng', lng + lngDelta);
+    }
+
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
 
     const { data, error, count } = await query;
 
@@ -91,13 +119,13 @@ export async function listDogs(options: {
     }
 
     // Transform to match expected format
-    const dogs = (data || []).map(dog => ({
+    const items = (data || []).map(dog => ({
       ...dog,
-      personality_tags: [] // We'll implement this properly later
+      personality_tags: [] // Will be populated if needed
     }));
 
     return {
-      dogs,
+      items,
       total: count || 0
     };
   } catch (error) {
@@ -106,30 +134,41 @@ export async function listDogs(options: {
   }
 }
 
-export async function getDogById(id: number): Promise<Dog | null> {
-  const { data, error } = await supabaseAdmin
+export async function getDogById(id: string): Promise<Dog | null> {
+  // First get the dog
+  const { data: dogData, error: dogError } = await supabaseAdmin
     .from('dogs')
-    .select(`
-      *,
-      personality_tags:dog_personality_tags(
-        personality_tag:personality_tags(id, tag_name)
-      )
-    `)
+    .select('*')
     .eq('id', id)
     .single();
 
-  if (error) {
-    if (error.code === 'PGRST116') {
+  if (dogError) {
+    if (dogError.code === 'PGRST116') {
       return null; // Not found
     }
-    console.error('Error fetching dog:', error);
-    throw new Error(`Failed to fetch dog: ${error.message}`);
+    console.error('Error fetching dog:', dogError);
+    throw new Error(`Failed to fetch dog: ${dogError.message}`);
   }
 
-  // Transform the personality tags structure
+  // Then get personality tags
+  const { data: tagsData, error: tagsError } = await supabaseAdmin
+    .from('dog_personality_tags')
+    .select(`
+      personality_tags (
+        id,
+        tag_name
+      )
+    `)
+    .eq('dog_id', id);
+
+  if (tagsError) {
+    console.error('Error fetching personality tags:', tagsError);
+  }
+
+  // Combine the data
   const dog = {
-    ...data,
-    personality_tags: data.personality_tags?.map((pt: any) => pt.personality_tag).filter(Boolean) || []
+    ...dogData,
+    personality_tags: tagsData?.map((t: any) => t.personality_tags).filter(Boolean) || []
   };
 
   return dog;

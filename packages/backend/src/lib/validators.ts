@@ -28,12 +28,36 @@ export type DogCreateInput = z.infer<typeof DogCreateSchema>;
 
 //For validation of query parameters in GET requests
 export const DogListQuerySchema = z.object({
-  limit: z.string().optional().transform((val: string | undefined) => val ? parseInt(val, 10) : undefined).pipe(z.number().min(1).max(100).optional()),
-  offset: z.string().optional().transform((val: string | undefined) => val ? parseInt(val, 10) : undefined).pipe(z.number().min(0).optional()),
-  area: z.string().optional().transform((val: string | undefined) => val?.trim()),
+  q: z.string().optional().transform((val: string | undefined) => val?.trim()),
+  tagIds: z.string().optional().transform((val: string | undefined) => 
+    val ? val.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id)) : undefined
+  ).pipe(z.array(z.number()).optional()),
+  energy: z.enum(['low', 'medium', 'high']).optional(),
+  compatKids: z.string().optional().transform((val: string | undefined) => 
+    val === 'true' ? true : val === 'false' ? false : undefined
+  ).pipe(z.boolean().optional()),
+  compatDogs: z.string().optional().transform((val: string | undefined) => 
+    val === 'true' ? true : val === 'false' ? false : undefined
+  ).pipe(z.boolean().optional()),
+  compatCats: z.string().optional().transform((val: string | undefined) => 
+    val === 'true' ? true : val === 'false' ? false : undefined
+  ).pipe(z.boolean().optional()),
   status: z.enum(['available', 'pending', 'adopted']).optional(),
-  breed: z.string().optional().transform((val: string | undefined) => val?.trim()),
-  gender: z.enum(['male', 'female', 'unknown']).optional()
+  lat: z.string().optional().transform((val: string | undefined) => 
+    val ? parseFloat(val) : undefined
+  ).pipe(z.number().min(-90).max(90).optional()),
+  lng: z.string().optional().transform((val: string | undefined) => 
+    val ? parseFloat(val) : undefined
+  ).pipe(z.number().min(-180).max(180).optional()),
+  radiusKm: z.string().optional().transform((val: string | undefined) => 
+    val ? parseFloat(val) : undefined
+  ).pipe(z.number().min(0.1).max(100).optional()),
+  limit: z.string().optional().transform((val: string | undefined) => 
+    val ? Math.min(parseInt(val, 10), 50) : 24
+  ).pipe(z.number().min(1).max(50)),
+  offset: z.string().optional().transform((val: string | undefined) => 
+    val ? parseInt(val, 10) : 0
+  ).pipe(z.number().min(0))
 });
 
 export type DogListQuery = z.infer<typeof DogListQuerySchema>;

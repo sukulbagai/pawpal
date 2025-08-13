@@ -17,14 +17,14 @@ router.get('/', async (req, res, next) => {
       });
     }
 
-    const { dogs, total } = await listDogs(queryResult.data);
+    const { items, total } = await listDogs(queryResult.data);
     
     return res.json({
-      dogs,
-      pagination: {
-        total,
-        limit: queryResult.data.limit || 20,
-        offset: queryResult.data.offset || 0
+      items,
+      page: {
+        limit: queryResult.data.limit || 24,
+        offset: queryResult.data.offset || 0,
+        total
       }
     });
   } catch (error) {
@@ -35,9 +35,9 @@ router.get('/', async (req, res, next) => {
 // GET /dogs/:id - Get specific dog
 router.get('/:id', async (req, res, next) => {
   try {
-    const dogId = parseInt(req.params.id, 10);
+    const dogId = req.params.id;
     
-    if (isNaN(dogId)) {
+    if (!dogId) {
       return res.status(400).json({
         error: 'Invalid dog ID'
       });
