@@ -21,10 +21,22 @@ export const DogCreateSchema = z.object({
   playfulness: z.string().optional().transform((val: string | undefined) => val?.trim()).pipe(z.string().max(100).optional()),
   special_needs: z.string().optional().transform((val: string | undefined) => val?.trim()).pipe(z.string().max(200).optional()),
   personality_tag_ids: z.array(z.number()).max(20, 'Maximum 20 personality tags allowed').default([]),
-  images: z.array(z.string().url('Invalid image URL')).min(1, 'At least 1 image is required').max(6, 'Maximum 6 images allowed')
+  images: z.array(z.string().url('Invalid image URL')).min(1, 'At least 1 image is required').max(6, 'Maximum 6 images allowed'),
+  videos: z.array(z.string().url('Invalid video URL')).max(4, 'Maximum 4 videos allowed').optional().default([])
 });
 
 export type DogCreateInput = z.infer<typeof DogCreateSchema>;
+
+// Helper function to check if a URL is a YouTube link
+export function isYoutubeUrl(url: string): boolean {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+    return hostname.includes('youtube.com') || hostname.includes('youtu.be');
+  } catch {
+    return false;
+  }
+}
 
 // Dog listing query schema
 export const DogListQuerySchema = z.object({

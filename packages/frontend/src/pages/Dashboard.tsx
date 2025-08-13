@@ -28,7 +28,12 @@ interface AdoptionRequest {
     email: string | null;
     phone: string | null;
   };
-  contact_visible: boolean;
+  caretaker?: {
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null;
+  contact_visible?: boolean;
 }
 
 export function Dashboard() {
@@ -44,6 +49,14 @@ export function Dashboard() {
     { id: 'outgoing', label: 'My Requests' },
   ];
 
+  // Calculate counts for tab chips
+  const pendingIncoming = incomingRequests.filter(r => r.status === 'pending').length;
+  const pendingOutgoing = outgoingRequests.filter(r => r.status === 'pending').length;
+  const counts = {
+    incoming: pendingIncoming,
+    outgoing: pendingOutgoing,
+  };
+
   useEffect(() => {
     loadRequests();
   }, []);
@@ -51,16 +64,17 @@ export function Dashboard() {
   const loadRequests = async () => {
     try {
       setLoading(true);
+      
       const [incomingResponse, outgoingResponse] = await Promise.all([
         api.get('/adoptions/incoming'),
-        api.get('/adoptions/outgoing'),
+        api.get('/adoptions/outgoing')
       ]);
 
       setIncomingRequests(incomingResponse.data.items || []);
       setOutgoingRequests(outgoingResponse.data.items || []);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading requests:', error);
-      showError('Failed to load adoption requests');
+      showError('Failed to load adoption requests. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -69,24 +83,16 @@ export function Dashboard() {
   const handleApprove = async (requestId: string) => {
     try {
       setActionLoading(requestId);
-      const response = await api.patch(`/adoptions/${requestId}`, {
-        status: 'approved',
+      
+      await api.patch(`/adoptions/${requestId}`, {
+        status: 'approved'
       });
 
-      if (response.data.ok) {
-        // Update the request in state
-        setIncomingRequests(prev => 
-          prev.map(req => 
-            req.id === requestId 
-              ? { ...req, status: 'approved', contact_visible: true }
-              : req
-          )
-        );
-        showSuccess('Request approved! Contact details are now visible.');
-      }
-    } catch (error: any) {
+      showSuccess('Adoption request approved! 🎉');
+      await loadRequests(); // Reload to get updated data
+    } catch (error) {
       console.error('Error approving request:', error);
-      showError(error.response?.data?.error || 'Failed to approve request');
+      showError('Failed to approve request. Please try again.');
     } finally {
       setActionLoading(null);
     }
@@ -95,24 +101,16 @@ export function Dashboard() {
   const handleDecline = async (requestId: string) => {
     try {
       setActionLoading(requestId);
-      const response = await api.patch(`/adoptions/${requestId}`, {
-        status: 'declined',
+      
+      await api.patch(`/adoptions/${requestId}`, {
+        status: 'declined'
       });
 
-      if (response.data.ok) {
-        // Update the request in state
-        setIncomingRequests(prev => 
-          prev.map(req => 
-            req.id === requestId 
-              ? { ...req, status: 'declined' }
-              : req
-          )
-        );
-        showSuccess('Request declined.');
-      }
-    } catch (error: any) {
+      showSuccess('Adoption request declined.');
+      await loadRequests(); // Reload to get updated data
+    } catch (error) {
       console.error('Error declining request:', error);
-      showError(error.response?.data?.error || 'Failed to decline request');
+      showError('Failed to decline request. Please try again.');
     } finally {
       setActionLoading(null);
     }
@@ -145,6 +143,7 @@ export function Dashboard() {
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        counts={counts}
       />
 
       {currentRequests.length === 0 ? (

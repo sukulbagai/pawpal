@@ -100,6 +100,7 @@ export interface Dog {
   special_needs?: string;
   personality_tag_ids?: number[];
   images?: string[];
+  videos?: string[];
   status: 'available' | 'pending' | 'adopted';
   created_at: string;
 }

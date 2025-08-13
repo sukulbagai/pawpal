@@ -42,12 +42,11 @@ export interface OutgoingRequestListItem {
     images: string[];
     status: 'available' | 'pending' | 'adopted';
   };
-  owner: {
+  caretaker: {
     name: string | null;
     email: string | null;
     phone: string | null;
-  };
-  contact_visible: boolean;
+  } | null;
 }
 
 /**
@@ -253,15 +252,52 @@ export async function listOutgoingRequests({ adopterAuthUserId }: { adopterAuthU
       images: request.dogs.images,
       status: request.dogs.status,
     },
-    owner: {
+    caretaker: request.status === 'approved' ? {
       name: request.dogs.owner.name,
-      email: request.status === 'approved' ? request.dogs.owner.email : null,
-      phone: request.status === 'approved' ? request.dogs.owner.phone : null,
-    },
-    contact_visible: request.status === 'approved',
+      email: request.dogs.owner.email,
+      phone: request.dogs.owner.phone,
+    } : null,
   }));
 
   return transformedRequests;
+}
+
+/**
+ * Gets the current user's adoption request for a specific dog (if any)
+ */
+export async function getMyRequestForDog({
+  dogId,
+  userAuthUserId,
+}: {
+  dogId: string;
+  userAuthUserId: string;
+}): Promise<AdoptionRequest | null> {
+  // First, resolve the user's ID from their auth user ID
+  const { data: user, error: userError } = await supabaseAdmin
+    .from('users')
+    .select('id')
+    .eq('auth_user_id', userAuthUserId)
+    .single();
+
+  if (userError || !user) {
+    throw new Error('User not found');
+  }
+
+  // Fetch the user's adoption request for this dog
+  const { data: request, error: requestError } = await supabaseAdmin
+    .from('adoption_requests')
+    .select('*')
+    .eq('dog_id', dogId)
+    .eq('adopter_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (requestError) {
+    throw new Error('Failed to fetch adoption request');
+  }
+
+  return request;
 }
 
 /**

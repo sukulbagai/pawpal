@@ -25,6 +25,7 @@ interface DogDetails {
   special_needs?: string;
   personality_tag_ids?: number[];
   images?: string[];
+  videos?: string[];
   status: 'available' | 'pending' | 'adopted';
   created_at: string;
   posted_by?: string;
@@ -42,6 +43,14 @@ export default function DogDetails() {
   const [adoptionMessage, setAdoptionMessage] = useState('');
   const [adoptionLoading, setAdoptionLoading] = useState(false);
   const [adoptionRequested, setAdoptionRequested] = useState(false);
+  
+  // User's request status for this dog
+  const [myRequest, setMyRequest] = useState<{
+    id: string;
+    status: 'pending' | 'approved' | 'declined' | 'cancelled';
+    message?: string;
+    created_at: string;
+  } | null>(null);
   
   const { session, userRow } = useAuthStore();
   const { showSuccess, showError } = useToast();
@@ -79,8 +88,12 @@ export default function DogDetails() {
   useEffect(() => {
     if (id) {
       fetchDog(id);
+      // Fetch user's request status if logged in
+      if (session) {
+        fetchMyRequest(id);
+      }
     }
-  }, [id]);
+  }, [id, session]);
 
   const fetchDog = async (dogId: string) => {
     try {
@@ -94,6 +107,16 @@ export default function DogDetails() {
       setError('Failed to load dog details. Please try again later.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMyRequest = async (dogId: string) => {
+    try {
+      const response = await api.get(`/dogs/${dogId}/my-request`);
+      setMyRequest(response.data.request);
+    } catch (err) {
+      console.error('Error fetching my request:', err);
+      // Don't show error to user - this is optional info
     }
   };
 
@@ -251,6 +274,59 @@ export default function DogDetails() {
                 </div>
               )}
             </div>
+
+            {/* Videos */}
+            {dog.videos && dog.videos.length > 0 && (
+              <div className="videos-section">
+                <h3 className="videos-title">Videos</h3>
+                <div className="videos-grid">
+                  {dog.videos.map((videoUrl, index) => {
+                    const isUploadedVideo = videoUrl.includes('/dog-videos/');
+                    const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
+                    
+                    return (
+                      <div key={index} className="video-item">
+                        {isUploadedVideo ? (
+                          <video 
+                            controls 
+                            muted 
+                            className="video-player"
+                            poster="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzk5OSI+VmlkZW88L3RleHQ+PC9zdmc+"
+                          >
+                            <source src={videoUrl} />
+                            Your browser does not support video playback.
+                          </video>
+                        ) : isYouTube ? (
+                          <div className="external-video">
+                            <iframe
+                              src={videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                              title={`${dog.name || 'Dog'} video ${index + 1}`}
+                              frameBorder="0"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              className="video-iframe"
+                            />
+                          </div>
+                        ) : (
+                          <div className="external-video-link">
+                            <div className="video-icon">🎬</div>
+                            <p>External Video Link</p>
+                            <a 
+                              href={videoUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="video-link-btn"
+                            >
+                              View Video →
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Column - Details */}
@@ -375,6 +451,48 @@ export default function DogDetails() {
             )}
           </div>
         </div>
+
+        {/* Status Banner for User's Request */}
+        {session && myRequest && (
+          <div className={`status-banner status-banner--${
+            myRequest.status === 'approved' ? 'ok' : 
+            myRequest.status === 'pending' ? 'warn' : 
+            'muted'
+          }`}>
+            {myRequest.status === 'pending' && (
+              <>
+                <h4>Your adoption request is pending</h4>
+                <p>Your adoption request is pending with the caretaker. They will review it and get back to you soon.</p>
+              </>
+            )}
+            {myRequest.status === 'approved' && (
+              <>
+                <h4>🎉 Your adoption request was approved!</h4>
+                <p>Congratulations! The caretaker has approved your adoption request. Please contact them to arrange the next steps.</p>
+                <div className="contact-info">
+                  <div className="contact-item">
+                    <strong>Name:</strong> 
+                    <span>{dog?.posted_by || 'Caretaker'}</span>
+                  </div>
+                  <div className="contact-item">
+                    <strong>Email:</strong> 
+                    <span>Contact details will be provided</span>
+                  </div>
+                  <div className="contact-item">
+                    <strong>Phone:</strong> 
+                    <span>Contact details will be provided</span>
+                  </div>
+                </div>
+              </>
+            )}
+            {myRequest.status === 'declined' && (
+              <>
+                <h4>Request declined</h4>
+                <p>Unfortunately, your adoption request was declined by the caretaker. You can still submit a new request if you'd like.</p>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Adoption Request Section */}
         <div className="details-card" style={{ marginTop: '32px' }}>

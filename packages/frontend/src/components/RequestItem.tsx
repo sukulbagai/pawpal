@@ -39,7 +39,12 @@ interface RequestItemProps {
       email: string | null;
       phone: string | null;
     };
-    contact_visible: boolean;
+    caretaker?: {
+      name: string | null;
+      email: string | null;
+      phone: string | null;
+    } | null;
+    contact_visible?: boolean;
   };
   onApprove?: (requestId: string) => void;
   onDecline?: (requestId: string) => void;
@@ -58,13 +63,44 @@ export function RequestItem({
 
   return (
     <div className="adoption-request-card">
+      {/* Caretaker Contact Card for Approved Outgoing Requests */}
+      {type === 'outgoing' && request.status === 'approved' && request.caretaker && (
+        <div className="contact-card">
+          <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>
+            🎉 Caretaker Contact
+          </h4>
+          <div style={{ fontSize: '14px' }}>
+            <strong>{request.caretaker.name || 'Caretaker'}</strong>
+            {request.caretaker.email && (
+              <>
+                <br />
+                <a href={`mailto:${request.caretaker.email}`}>
+                  📧 {request.caretaker.email}
+                </a>
+              </>
+            )}
+            {request.caretaker.phone && (
+              <>
+                <br />
+                <a href={`tel:${request.caretaker.phone}`}>
+                  📞 {request.caretaker.phone}
+                </a>
+              </>
+            )}
+            <div style={{ marginTop: '6px', fontSize: '12px', opacity: 0.8 }}>
+              Use email/phone to coordinate adoption.
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="adoption-request-header">
         <div className="adoption-request-info">
           <h3 className="adoption-request-title">
             {request.dog.name || 'Unnamed Dog'} • {request.dog.area}
           </h3>
           <p className="adoption-request-meta">
-            {type === 'incoming' ? 'Request from' : 'Request to'}{' '}
+            {type === 'incoming' ? 'Request from' : 'Request to caretaker'}{' '}
             {contact?.name || 'Unknown User'} •{' '}
             {formatTimeAgo(request.created_at)}
           </p>
@@ -90,10 +126,10 @@ export function RequestItem({
       {request.contact_visible && contact && (
         <div className="adoption-request-contact">
           <h4 className="adoption-request-contact-title">
-            Contact Information
+            {type === 'outgoing' ? 'Caretaker Contact Information' : 'Adopter Contact Information'}
           </h4>
           <div className="adoption-request-contact-info">
-            <strong>{contact.name || 'Unknown User'}</strong>
+            <strong>{contact.name || (type === 'outgoing' ? 'Caretaker' : 'Adopter')}</strong>
             {contact.email && (
               <>
                 <br />
@@ -130,9 +166,9 @@ export function RequestItem({
       )}
 
       {request.status === 'approved' && (
-        <div style={{ marginTop: '16px', padding: '12px', background: '#f0f9ff', borderRadius: '8px' }}>
-          <p style={{ margin: 0, fontSize: '14px', color: '#0369a1', fontWeight: '500' }}>
-            ✅ Request approved! Contact details are now visible to both parties.
+        <div style={{ marginTop: '16px', padding: '16px', background: '#f0fdf4', border: '1px solid #22c55e', borderRadius: '8px' }}>
+          <p style={{ margin: 0, fontSize: '14px', color: '#15803d', fontWeight: '600' }}>
+            🎉 {type === 'outgoing' ? 'Adoption request approved! Contact the caretaker to arrange next steps.' : 'Request approved! Contact details are now visible to both parties.'}
           </p>
         </div>
       )}

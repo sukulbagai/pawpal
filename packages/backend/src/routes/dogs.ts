@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { listDogs, getDogById, createDog } from '../lib/dogs';
+import { getMyRequestForDog } from '../lib/adoptions';
 import { DogListQuerySchema, DogCreateSchema } from '../lib/validators';
 import { authRequired } from '../middleware/auth';
 
@@ -52,6 +53,34 @@ router.get('/:id', async (req, res, next) => {
     }
 
     return res.json(dog);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// GET /dogs/:id/my-request - Get current user's adoption request for a specific dog
+router.get('/:id/my-request', authRequired, async (req, res, next) => {
+  try {
+    const dogId = req.params.id;
+    
+    if (!dogId) {
+      return res.status(400).json({
+        error: 'Invalid dog ID'
+      });
+    }
+
+    if (!req.authUserId) {
+      return res.status(401).json({
+        error: 'Authentication required'
+      });
+    }
+
+    const request = await getMyRequestForDog({
+      dogId,
+      userAuthUserId: req.authUserId
+    });
+
+    return res.json({ request });
   } catch (error) {
     return next(error);
   }

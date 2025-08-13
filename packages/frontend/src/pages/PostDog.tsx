@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../lib/api';
 import ImageUploader from '../components/ImageUploader';
+import VideoUploader from '../components/VideoUploader';
 import TagMultiSelect from '../components/TagMultiSelect';
 import './PostDog.css';
 
@@ -27,6 +28,7 @@ interface DogFormData {
   special_needs: string;
   personality_tag_ids: number[];
   images: string[];
+  videos: string[];
 }
 
 const PostDog: React.FC = () => {
@@ -48,7 +50,8 @@ const PostDog: React.FC = () => {
     playfulness: '',
     special_needs: '',
     personality_tag_ids: [],
-    images: []
+    images: [],
+    videos: []
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -205,7 +208,8 @@ const PostDog: React.FC = () => {
         playfulness: formData.playfulness.trim() || undefined,
         special_needs: formData.special_needs.trim() || undefined,
         personality_tag_ids: formData.personality_tag_ids,
-        images: formData.images
+        images: formData.images,
+        videos: formData.videos
       };
 
       const response = await api.post('/dogs', submitData);
@@ -550,6 +554,20 @@ const PostDog: React.FC = () => {
               disabled={isSubmitting}
             />
             {errors.images && <span className="error">{errors.images}</span>}
+          </section>
+
+          {/* Videos */}
+          <section className="form-section">
+            <h2>Videos (Optional)</h2>
+            <p>Upload up to 4 videos or add links from YouTube, Google Drive, etc. Videos help showcase the dog's personality!</p>
+            
+            <VideoUploader
+              value={formData.videos}
+              onChange={(urls) => handleInputChange('videos', urls)}
+              disabled={isSubmitting}
+              max={4}
+            />
+            {errors.videos && <span className="error">{errors.videos}</span>}
           </section>
 
           {/* Submit */}

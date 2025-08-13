@@ -12,6 +12,7 @@ export interface Dog {
   location_lat: number | null;
   location_lng: number | null;
   images: string[];
+  videos: string[];
   health_sterilised: boolean;
   health_vaccinated: boolean;
   health_dewormed: boolean;
@@ -39,6 +40,7 @@ export interface DogCreateResult {
   name: string | null;
   area: string;
   images: string[];
+  videos: string[];
   status: 'available' | 'pending' | 'adopted';
   created_at: string;
 }
@@ -194,6 +196,7 @@ export async function createDog({
     location_lat: validatedData.location_lat || null,
     location_lng: validatedData.location_lng || null,
     images: validatedData.images,
+    videos: validatedData.videos || [],
     health_sterilised: validatedData.health_sterilised,
     health_vaccinated: validatedData.health_vaccinated,
     health_dewormed: validatedData.health_dewormed,
@@ -213,7 +216,7 @@ export async function createDog({
   const { data: dogResult, error: dogError } = await supabaseAdmin
     .from('dogs')
     .insert(dogData)
-    .select('id, name, area, images, status, created_at')
+    .select('id, name, area, images, videos, status, created_at')
     .single();
 
   if (dogError) {

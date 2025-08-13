@@ -7,9 +7,10 @@ interface TabsProps {
   tabs: Tab[];
   activeTab: string;
   onTabChange: (tabId: string) => void;
+  counts?: { [key: string]: number };
 }
 
-export function Tabs({ tabs, activeTab, onTabChange }: TabsProps) {
+export function Tabs({ tabs, activeTab, onTabChange, counts }: TabsProps) {
   return (
     <div className="tabs">
       {tabs.map(tab => (
@@ -19,6 +20,9 @@ export function Tabs({ tabs, activeTab, onTabChange }: TabsProps) {
           onClick={() => onTabChange(tab.id)}
         >
           {tab.label}
+          {counts && counts[tab.id] !== undefined && counts[tab.id] > 0 && (
+            <span className="tab-count">{counts[tab.id]}</span>
+          )}
         </button>
       ))}
     </div>
